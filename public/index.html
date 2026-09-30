@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>植物显微切片测量</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>🌿 植物显微切片测量</h1>
+    <nav class="views">
+      <button id="tabWorkspace" class="tab active" type="button">测量工作台</button>
+      <button id="tabReports" class="tab" type="button">已发布报告</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- ============ 工作台 ============ -->
+    <section id="viewWorkspace" class="view active">
+      <aside class="sidebar">
+        <div class="panel">
+          <h2>图片</h2>
+          <label class="upload-btn">
+            ＋ 上传显微图片
+            <input id="fileInput" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+          </label>
+          <div id="imageList" class="image-list"></div>
+        </div>
+      </aside>
+
+      <div class="canvas-area">
+        <div id="workspaceToolbar" class="toolbar">
+          <div class="tool-group" id="draftTools">
+            <button data-tool="pan" class="tool" type="button" title="平移（H / 鼠标右键拖动）">✋ 平移</button>
+            <button data-tool="calibrate" class="tool" type="button" title="在原图上选两个像素点定标">📏 定标</button>
+            <button data-tool="cell" class="tool primary" type="button" title="点击添加顶点，双击/回车闭合">⭕ 圈细胞</button>
+            <button data-tool="hole" class="tool" type="button" title="为所选细胞圈孔洞，孔洞须严格在细胞内">⬡ 圈孔洞</button>
+            <button id="btnCloseRing" class="tool warn" type="button" disabled>闭合轮廓 (Enter)</button>
+            <button id="btnUndoPoint" class="tool" type="button" disabled>撤销点 (Z)</button>
+            <button id="btnDeleteSel" class="tool danger" type="button" disabled>删除所选</button>
+          </div>
+          <div class="tool-group right">
+            <span class="hint">滚轮缩放 · 右键/中键平移 · 缩放不改变测量值</span>
+            <button id="btnFitView" class="tool" type="button">适应窗口</button>
+            <button id="btnSave" class="tool primary" type="button" disabled>保存草稿</button>
+            <button id="btnPublish" class="tool success" type="button" disabled>发布报告</button>
+          </div>
+        </div>
+
+        <div id="canvasWrap" class="canvas-wrap">
+          <canvas id="canvas"></canvas>
+          <div id="emptyHint" class="empty-hint">请先上传或选择一张显微图片</div>
+          <div id="modeHint" class="mode-hint hidden"></div>
+          <div id="cursorInfo" class="cursor-info hidden"></div>
+        </div>
+      </div>
+
+      <aside class="sidebar rightbar">
+        <div class="panel">
+          <h2>标尺（定标）</h2>
+          <div id="scaleInfo" class="scale-info">尚未定标</div>
+          <button id="btnRecalibrate" class="tool small" type="button" disabled>重新定标</button>
+          <p class="note">重新定标后，所有草稿轮廓保持原像素形状，面积与周长自动按新比例重算；已发布报告不受影响。</p>
+        </div>
+        <div class="panel">
+          <h2>细胞与孔洞</h2>
+          <div id="cellList" class="cell-list"></div>
+        </div>
+        <div class="panel">
+          <h2>草稿状态</h2>
+          <div id="draftStatus" class="draft-status">未加载</div>
+        </div>
+      </aside>
+    </section>
+
+    <!-- ============ 报告 ============ -->
+    <section id="viewReports" class="view">
+      <aside class="sidebar">
+        <div class="panel">
+          <h2>已发布报告</h2>
+          <button id="btnRefreshReports" class="tool small" type="button">刷新列表</button>
+          <div id="reportList" class="image-list"></div>
+          <div class="export-box">
+            <h3>批量导出所选</h3>
+            <button id="btnExportZip" class="tool success" type="button" disabled>导出 ZIP（标注PNG + CSV）</button>
+          </div>
+        </div>
+      </aside>
+      <div class="canvas-area">
+        <div class="toolbar">
+          <div class="tool-group">
+            <button id="btnReportPng" class="tool" type="button" disabled>导出标注 PNG</button>
+            <button id="btnReportCsv" class="tool" type="button" disabled>导出测量 CSV</button>
+          </div>
+          <div class="tool-group right">
+            <span id="reportMeta" class="hint"></span>
+            <button id="btnReportFit" class="tool" type="button">适应窗口</button>
+          </div>
+        </div>
+        <div id="reportCanvasWrap" class="canvas-wrap">
+          <canvas id="reportCanvas"></canvas>
+          <div id="reportEmptyHint" class="empty-hint">请选择左侧一份报告查看（报告不可编辑）</div>
+        </div>
+      </div>
+      <aside class="sidebar rightbar">
+        <div class="panel">
+          <h2>测量结果</h2>
+          <p class="note">面积 = 外轮廓面积 − Σ孔洞面积（µm²）；总周长 = 外轮廓周长 + Σ孔洞周长（µm）。</p>
+          <div id="reportResults" class="report-results"></div>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <!-- 定标弹窗 -->
+  <div id="calibModal" class="modal hidden">
+    <div class="modal-body">
+      <h2>像素定标</h2>
+      <ol class="steps">
+        <li id="step1">在图片上点击标尺的 <b>第 1 个</b> 像素点</li>
+        <li id="step2">点击 <b>第 2 个</b> 不同像素点</li>
+        <li>填写这两个像素点之间的<b>实际距离（微米 µm）</b></li>
+      </ol>
+      <div class="calib-readout">
+        <div>点 1：<span id="calibP1">—</span></div>
+        <div>点 2：<span id="calibP2">—</span></div>
+        <div>像素距离：<span id="calibPx">—</span> px</div>
+      </div>
+      <label class="calib-input">
+        实际距离（µm）
+        <input id="calibUm" type="number" min="0" step="any" placeholder="例如 50">
+      </label>
+      <div id="calibError" class="form-error hidden"></div>
+      <div class="modal-actions">
+        <button id="calibCancel" class="tool" type="button">取消</button>
+        <button id="calibReset" class="tool warn" type="button">重选点</button>
+        <button id="calibApply" class="tool primary" type="button">应用定标</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 发布弹窗 -->
+  <div id="publishModal" class="modal hidden">
+    <div class="modal-body">
+      <h2>发布报告</h2>
+      <p class="note">发布将冻结当前图片、标尺、轮廓与测量结果为不可变快照。基于草稿版本 <b id="publishVersion"></b>。</p>
+      <label class="calib-input">
+        报告标题
+        <input id="publishTitle" type="text" maxlength="200" placeholder="可选，默认为 文件名 + 版本号">
+      </label>
+      <div id="publishError" class="form-error hidden"></div>
+      <div class="modal-actions">
+        <button id="publishCancel" class="tool" type="button">取消</button>
+        <button id="publishConfirm" class="tool success" type="button">确认发布</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="/shared/geometry.js"></script>
+  <script src="/shared/validation.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

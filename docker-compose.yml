@@ -1,0 +1,19 @@
+services:
+  app:
+    build: .
+    image: plant-microscope-measure:latest
+    container_name: plant-microscope-measure
+    ports:
+      - "${HOST_PORT:-8080}:8080"
+    environment:
+      # 单张上传图片大小上限（MB）
+      MAX_UPLOAD_MB: "50"
+    volumes:
+      # 所有本地数据：SQLite 数据库、上传原图、发布报告快照
+      - ./data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

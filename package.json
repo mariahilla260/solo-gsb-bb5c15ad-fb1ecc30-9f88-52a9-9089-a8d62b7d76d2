@@ -1,0 +1,20 @@
+{
+  "name": "plant-microscope-measure",
+  "version": "1.0.0",
+  "private": true,
+  "description": "植物显微切片测量 Web 应用：像素定标、细胞轮廓/孔洞圈选、面积与周长测量、报告发布与导出",
+  "main": "server/index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server/index.js"
+  },
+  "dependencies": {
+    "archiver": "^7.0.1",
+    "better-sqlite3": "^11.8.1",
+    "express": "^4.21.2",
+    "multer": "^1.4.5-lts.1",
+    "sharp": "^0.33.5"
+  }
+}
